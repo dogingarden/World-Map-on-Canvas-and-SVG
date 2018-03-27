@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>World Map</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://d3js.org/d3-geo-projection.v1.min.js"></script>
+    <script src="https://d3js.org/topojson.v2.min.js"></script>
+</head>
+<body>
+  <div id="paper">
+      <label>
+        <input id='svg' name="type" type="radio" checked>
+        <span>svg</span>
+      </label>
+      <label>
+        <input id='canvas' name="type" type="radio">
+        <span>canvas</span>
+      </label>
+  </div>
+  <div id="example" style="max-width: 960px"></div>
+<style>
+label {
+  background-color: white;
+}
+</style>
+<script>
+(function () {
+    d3.select('#svg').on('click', function () {
+        draw('svg');
+    });
+    d3.select('#canvas').on('click', function () {
+        draw('canvas');
+    });
+    var example = d3.select("#example"),
+            width = 900,
+            height = Math.min(500, width),
+            color = d3.scaleOrdinal(d3.schemeCategory10),
+            world;
+
+    d3.json("https://giottojs.org/geo/world-110m.json", {crossOrigin: "anonymous"}).then(function( w) {
+        
+        world = w;
+        draw('svg');
+    });
+
+    function draw(type, r) {
+        example.select('.paper').remove();
+        var paper = example
+                .append(type)
+                .classed('paper', true)
+                .attr('width', width).attr('height', height);
+
+        var projection = d3.geoKavrayskiy7().scale(150)
+            .translate([width / 2, height / 2])
+            .precision(.1);
+
+        var path = d3.geoPath().projection(projection),
+            graticule = d3.geoGraticule();
+        console.log(graticule);
+        var countries = topojson.feature(world, world.objects.countries).features,
+            neighbors = topojson.neighbors(world.objects.countries.geometries);
+            
+        if(type=="svg"){
+            paper.append("path")
+                .datum({type: "Sphere"})
+                .style("fill", "#fff")
+                .style('stroke', '#000')
+                .style('stroke-width', '2px')
+                .attr("d", path);
+
+            paper.append("path")
+                .datum(graticule)
+                .style("fill", "none")
+                .style("stroke", '#777')
+                .style("stroke-width", '.5px')
+                .style("stroke-opacity", 0.5)
+                .attr("d", path);
+
+            paper.selectAll(".country")
+                .data(countries)
+                .enter()
+                .insert("path", ".graticule")
+                .attr("class", "country")
+                .attr("d", path)
+                .style("fill", function (d, i) {
+                    return color(d.color = d3.max(neighbors[i], function (n) {
+                            return countries[n].color;
+                        }) + 1 | 0);
+                });
+
+            paper.insert("path", ".graticule")
+                .datum(topojson.mesh(world, world.objects.countries, function (a, b) {
+                    return a !== b;
+                }))
+                .style("fill", "none")
+                .style("stroke", '#fff')
+                .style("stroke-width", '.5px')
+                .attr("d", path);
+        }else{
+            var ctx = paper.node().getContext("2d");
+            path.context(ctx);//path 默认返回svg路径字符串，加上context()后转为canvas上的context绘制。
+
+            //绘制半球
+            ctx.beginPath();
+            path({type: "Sphere"});
+            ctx.fillStyle="#fff";
+            ctx.fill();
+            ctx.lineWidth="2";
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+
+            //countries绘制网格
+            ctx.beginPath();
+            path(graticule());
+            ctx.fillStyle='none';
+            ctx.fill();
+            ctx.lineWidth="0.5";
+            ctx.strokeStyle = 'rgba(119,119,119,0.5)';
+            ctx.stroke();
+
+            path(topojson.mesh(world));
+            ctx.stroke();
+        }
+    }
+
+}());
+</script>
+</body>
