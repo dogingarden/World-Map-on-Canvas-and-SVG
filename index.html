@@ -119,8 +119,24 @@ label {
             ctx.lineWidth="0.5";
             ctx.strokeStyle = 'rgba(119,119,119,0.5)';
             ctx.stroke();
-
-            path(topojson.mesh(world));
+            //添加地图部分
+            countries.forEach((d,i)=>{
+                let c = color(d.color = d3.max(neighbors[i], function (n) {
+                            return countries[n].color;
+                        }) + 1 | 0);
+                ctx.beginPath();
+                path(d);
+                ctx.fillStyle=c;
+                ctx.fill();
+            });
+            //绘制边框
+            var border = topojson.mesh(world, world.objects.countries, function (a, b) {
+                return a !== b;
+            });
+            ctx.beginPath();
+            path(border);
+            ctx.lineWidth="0.5";
+            ctx.strokeStyle="#fff";
             ctx.stroke();
         }
     }
